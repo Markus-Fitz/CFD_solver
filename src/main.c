@@ -40,8 +40,8 @@ int main() {
 
             pressure[j*ny + i] = (i*dx - 5)*(i*dx - 5) + (j*dy - 5)*(j*dy - 5); // parabolic field centered around middle
 
-            velocities[2*id] = i*dx - 5.5; // velocities pointing outward of center in x-dir
-            velocities[2*id+1] = j*dy - 5.5;    //velocities in y-dir
+            velocities[2*id] = i*dx - 5; // velocities pointing outward of center in x-dir
+            velocities[2*id+1] = j*dy - 5;    //velocities in y-dir
         }
     }
 

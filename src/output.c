@@ -39,8 +39,8 @@ void write_vtu(
     fprintf(fp, "        <DataArray type=\"Int32\" Name=\"connectivity\" format=\"ascii\">\n");
 
     for(size_t i = 0; i < num_cells; i++){
-        if(dim == 2) fprintf(fp, "%d %d %d %d\n", connections[i*4], connections[i*4 + 1], connections[i*4 + 2], connections[i*4 + 3]);
-        if(dim == 3) fprintf(fp, "%d %d %d %d\n", connections[i*8], connections[i*8 + 1], connections[i*8 + 2], connections[i*8 + 3], connections[i*8 + 4], connections[i*8 + 5], connections[i*8 + 6], connections[i*8 + 7]);
+        if(dim == 2) fprintf(fp, "%zu %zu %zu %zu\n", connections[i*4], connections[i*4 + 1], connections[i*4 + 2], connections[i*4 + 3]);
+        if(dim == 3) fprintf(fp, "%zu %zu %zu %zu %zu %zu %zu %zu\n", connections[i*8], connections[i*8 + 1], connections[i*8 + 2], connections[i*8 + 3], connections[i*8 + 4], connections[i*8 + 5], connections[i*8 + 6], connections[i*8 + 7]);
     }
     fprintf(fp, "        </DataArray>\n");
 
@@ -62,9 +62,15 @@ void write_vtu(
     // Write pressure as CELL_DATA
     fprintf(fp, "      <CellData Scalars=\"pressure\">\n");
     fprintf(fp, "        <DataArray type=\"Float32\" Name=\"pressure\" format=\"ascii\">\n");
-
     for(size_t i = 0; i < num_cells; i++){
         fprintf(fp, "%f\n", pressure[i]);
+    }
+    fprintf(fp, "        </DataArray>\n");
+
+    // Write Velocities as CELL_DATA
+    fprintf(fp, "        <DataArray type=\"Float64\" Name=\"Velocity\" NumberOfComponents=\"3\" format=\"ascii\">\n");
+    for (size_t c = 0; c < num_cells; c++) {
+        fprintf(fp, "      %f %f %f\n", velocities[2*c + 0], velocities[2*c + 1], 0.0);
     }
     fprintf(fp, "        </DataArray>\n");
     fprintf(fp, "      </CellData>\n");
