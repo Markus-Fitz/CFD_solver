@@ -5,7 +5,6 @@
 
 void write_vtu(
     const char *filename,       // name of output file
-    int dim,                    // dimensionality of coordinates (2 or 3)
     size_t num_cells,           // number of cells for extraction of values from arrays
     size_t num_points,          // number of points making up the edges of the cells -> the coordinates for the mesh
     const double *mesh_point_coordinates,   // array of mesh point coordinates making up the corners of the cells

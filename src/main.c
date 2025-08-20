@@ -5,76 +5,99 @@
 
 int main() {
 
-    size_t nx = 11, ny = 11;    // size of the field of cell centers
-    size_t num_cells = nx * ny; // number of cells
-    double dx = 1.0, dy = 1.0;
-    int dim = 2;
-    size_t num_points = (nx + 1)*(ny + 1);
+    size_t nx = 11, ny = 11, nz = 11;    // size of the field of cell centers
+    size_t num_cells = nx * ny * nz; // number of cells
+    double dx = 1.0, dy = 1.0, dz = 1.0;
+    size_t num_points = (nx + 1)*(ny + 1)*(nz + 1);
 
-    double *cell_centers = malloc(nx * ny * 2 * sizeof(double));
+    double *cell_centers = malloc(num_cells * 3 * sizeof(double));
     if (cell_centers == NULL) return 1;
 
-    double *mesh_point_coordinates = malloc((nx + 1)*(ny + 1) * 2 * sizeof(double));
+    double *mesh_point_coordinates = malloc(num_points * 3 * sizeof(double));
     if (mesh_point_coordinates == NULL) return 1;
 
-    size_t *cell_points = malloc(nx * ny * 4 * sizeof(size_t));
+    size_t *cell_points = malloc(num_cells * 8 * sizeof(size_t));
     if (cell_points == NULL) return 1;
 
-    double *pressure = malloc(nx * ny * sizeof(double));
+    double *pressure = malloc(num_cells * sizeof(double));
     if (pressure == NULL) return 1;
 
-    double *velocities = malloc(nx * ny * 2 * sizeof(double));
+    double *velocities = malloc(num_cells * 3 * sizeof(double));
     if (velocities == NULL) return 1;
 
-    // generate debug dummy fields for pressure and velocity
-    for(size_t j = 0; j < ny; j++) {
-        for(size_t i = 0; i < nx; i++){
+    // generate initial pressure and velocity fields
+    for(size_t z = 0; z < nz; z++){
+        for(size_t y = 0; y < ny; y++) {
+            for(size_t x = 0; x < nx; x++) {
 
-            double x = i*dx;
-            double y = j*dy;
+                // coordinates of cell-center in question
+                double coord_x = x*dx;
+                double coord_y = y*dy;
+                double coord_z = z*dz;
 
-            size_t id = j*nx + i;   // index with "stride" for 2D arrays
+                // index of current cell: after nx cells: y gets iterated by one, after nx*ny cells, z gets iterated by one
+                size_t id = x + nx*y + nx*ny*z;
 
-            cell_centers[2*id] = x;  // x-coordinate
-            cell_centers[2*id + 1] = y;  // y-coordinate
+                // write down coordinate of cell into array
+                cell_centers[3*id] = coord_x;       // x-coordinate
+                cell_centers[3*id + 1] = coord_y;   // y-coordinate
+                cell_centers[3*id + 2] = coord_z;   // z-coordinate
 
-            pressure[j*ny + i] = (i*dx - 5)*(i*dx - 5) + (j*dy - 5)*(j*dy - 5); // parabolic field centered around middle
-
-            velocities[2*id] = i*dx - 5; // velocities pointing outward of center in x-dir
-            velocities[2*id+1] = j*dy - 5;    //velocities in y-dir
+                // initial pressure field
+                pressure[id] = (coord_x - 5)*(coord_x - 5) + (coord_y - 5)*(coord_y - 5) + (coord_z - 5)*(coord_z - 5);     // parabolic field centered around center
+                
+                // initial velocity field
+                velocities[3*id] = coord_x - 5;         // velocities in x-dir
+                velocities[3*id+1] = coord_y - 5;       // velocities in y-dir
+                velocities[3*id+2] = coord_z - 5;       // velocities in z-dir
+            }
         }
     }
 
     // generate point mesh
-    for(size_t j = 0; j < ny+1; j++){
-        for(size_t i = 0; i < nx+1; i++){
+    for(size_t z = 0; z < nz+1; z++){
+        for(size_t y = 0; y < ny+1; y++){
+            for(size_t x = 0; x < nx+1; x++){
 
-            double x = i*dx;
-            double y = j*dy;
+                // coordinate of cell center in question
+                double coord_x = x*dx;
+                double coord_y = y*dy;
+                double coord_z = z*dz;
+                
+                // point grid has one more coordinates in x-direction!
+                size_t id = x + (nx+1)*y + (nx+1)*(ny+1)*z;
 
-            size_t id = j*(nx+1) + i;   // point grid has one more coordinates in x-direction!
+                // coordinates of mesh grid points - grid starts 0.5*dx/dy/dz "before" first cell center
+                mesh_point_coordinates[3*id] = coord_x - 0.5*dx;
+                mesh_point_coordinates[3*id + 1] = coord_y - 0.5*dy;
+                mesh_point_coordinates[3*id + 2] = coord_z - 0.5*dz;
 
-            mesh_point_coordinates[2*id] = x - 0.5*dx;  // grid starts 0.5*dx "before" first cell center
-            mesh_point_coordinates[2*id + 1] = y - 0.5*dy;  // grid starts 0.5*dy "before" first cell center
-
+            }
         }
     }
 
-    // generate conections
-    for(size_t j = 0; j < ny; j++){
-        for(size_t i = 0; i < nx; i++){
-            
-            size_t id = j*nx + i;
+    // generate conections of grid nodes
+    for(size_t z = 0; z < nz; z++){
+        for(size_t y = 0; y < ny; y++){
+            for(size_t x = 0; x < nx; x++){
+                
+                size_t id = x + nx*y + nx*ny*z;
 
-            cell_points[4*id] = j * (nx + 1) + i;
-            cell_points[4*id + 1] = j * (nx + 1) + i + 1;
-            cell_points[4*id + 2] = (j + 1) * (nx + 1) + i + 1;
-            cell_points[4*id + 3] = (j + 1) * (nx + 1) + i;
+                // for each id list all eight points connecting cell; one row in y-dir equals ID-offset of nx; one row in z-dir equals ID-offset of nx*ny
+                cell_points[8*id] = id;
+                cell_points[8*id + 1] = id + 1;
+                cell_points[8*id + 2] = id + nx + 1;
+                cell_points[8*id + 3] = id + nx;
+                cell_points[8*id + 4] = id + nx*ny;
+                cell_points[8*id + 5] = id + nx*ny + 1;
+                cell_points[8*id + 6] = id + nx*ny + nx + 1;
+                cell_points[8*id + 7] = id + nx*ny + nx;
 
+            }
         }
     }
 
-    write_vtu("output.vtu", dim, num_cells, num_points, mesh_point_coordinates, cell_points, pressure, velocities);
+    write_vtu("output.vtu", num_cells, num_points, mesh_point_coordinates, cell_points, pressure, velocities);
     free(cell_centers);
     free(mesh_point_coordinates);
     free(cell_points);
