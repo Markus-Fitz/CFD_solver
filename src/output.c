@@ -6,9 +6,10 @@ void write_vtu(
     size_t num_cells,
     size_t num_points,
     const double *mesh_point_coordinates, 
-    const size_t *connections, 
+    const size_t *cell_points, 
     const double *pressure, 
-    const double *velocities) {
+    const double *velocities
+    double time) {
     
     FILE *fp = fopen(filename, "w");
     if (!fp) {
@@ -31,11 +32,11 @@ void write_vtu(
     fprintf(fp, "        </DataArray>\n");
     fprintf(fp, "      </Points>\n");
 
-    // Write cells (quads / hexagons)
+    // Write cells (voxels)
     fprintf(fp, "      <Cells>\n");
     fprintf(fp, "        <DataArray type=\"Int32\" Name=\"connectivity\" format=\"ascii\">\n");
     for(size_t i = 0; i < num_cells; i++){
-        fprintf(fp, "%zu %zu %zu %zu %zu %zu %zu %zu\n", connections[i*8], connections[i*8 + 1], connections[i*8 + 2], connections[i*8 + 3], connections[i*8 + 4], connections[i*8 + 5], connections[i*8 + 6], connections[i*8 + 7]);
+        fprintf(fp, "%zu %zu %zu %zu %zu %zu %zu %zu\n", cell_points[i*8], cell_points[i*8 + 1], cell_points[i*8 + 2], cell_points[i*8 + 3], cell_points[i*8 + 4], cell_points[i*8 + 5], cell_points[i*8 + 6], cell_points[i*8 + 7]);
     }
     fprintf(fp, "        </DataArray>\n");
 
@@ -47,7 +48,7 @@ void write_vtu(
 
     fprintf(fp, "        <DataArray type=\"UInt8\" Name=\"types\" format=\"ascii\">\n");
     for (size_t c = 0; c < num_cells; c++) {
-        fprintf(fp, "12\n"); // VTK_HEX = 12
+        fprintf(fp, "11\n"); // VTK_VOXEL = 11
     }
     fprintf(fp, "        </DataArray>\n");
     fprintf(fp, "      </Cells>\n");
@@ -63,7 +64,7 @@ void write_vtu(
     // Write Velocities as CELL_DATA
     fprintf(fp, "        <DataArray type=\"Float64\" Name=\"Velocity\" NumberOfComponents=\"3\" format=\"ascii\">\n");
     for (size_t c = 0; c < num_cells; c++) {
-        fprintf(fp, "      %f %f %f\n", velocities[2*c + 0], velocities[2*c + 1], 0.0);
+        fprintf(fp, "      %f %f %f\n", velocities[3*c], velocities[3*c + 1], velocities[3*c + 2]);
     }
     fprintf(fp, "        </DataArray>\n");
     fprintf(fp, "      </CellData>\n");
