@@ -8,8 +8,7 @@ void write_vtu(
     const double *mesh_point_coordinates, 
     const size_t *cell_points, 
     const double *pressure, 
-    const double *velocities
-    double time) {
+    const double *velocities) {
     
     FILE *fp = fopen(filename, "w");
     if (!fp) {

@@ -2,7 +2,7 @@
 CC = gcc
 CFLAGS = -std=c11 -O2 -Iinclude -Wall -Wextra
 LDFLAGS =
-SRC = src/main.c src/output.c
+SRC = src/main.c src/output.c src/solver.c
 OBJ = $(SRC:.c=.o)
 TARGET = bin/cfd_solver.o
 

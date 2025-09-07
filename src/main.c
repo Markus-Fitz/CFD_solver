@@ -7,16 +7,33 @@
 
 int main() {
 
-    size_t nx = 31, ny = 51, nz = 1;    // size of the field of cell centers
+    size_t nx = 31, ny = 51, nz = 3;    // size of the field of cell centers -> three cells in z-direction for zero-gradient BC
     size_t num_cells = nx * ny * nz; // number of cells
     double dx = 0.1, dy = 0.1, dz = 0.1;
     size_t num_points = (nx + 1)*(ny + 1)*(nz + 1); // number of mesh node points
 
     double dt = 1;  // (maximum) timestep in seconds; possibly adaptive timestep later on by examining cell flow velocities?
-    int num_steps = 50; // number of timesteps
+    int num_steps = 1; // number of timesteps
 
     double nu = 0.0001; // viscosity
     double rho = 1.0;   // density
+
+    /*
+    === allocated arrays ===
+    cell_centers
+    cell_interfaces
+    mesh_point_coordinates
+    cell_points
+    pressure
+    velocities
+    tent_velocities
+    boundary_conditions_u
+    boundary_conditions_u_values
+    boundary_conditions_u_ids
+    boundary_conditions_p
+    boundary_conditions_p_values
+    boundary_conditions_p_ids
+    */
 
     // coordinate array for cell centers
     double *cell_centers = malloc(num_cells * 3 * sizeof(double));
@@ -51,11 +68,10 @@ int main() {
     double *tent_velocities = malloc(num_cells * 3 * sizeof(double));
     if (tent_velocities == NULL) return 1;
 
-    // TODO: combine u and p BCs into one array?
     // array for velocity boundary conditions:
     // 0: no BC
     // 1: const_velocity: velocity is set to constant value e.g. zero -> see velocity_BC_val array
-    // 2: copy velocity from other cell face: velocity is set to velocity value of ohter cell ID in bc_id-array
+    // 2: copy velocity from other cell face: velocity is set to velocity value of other cell ID in bc_id-array
     uint8_t *boundary_conditions_u = malloc(num_cells * 3 * sizeof(uint8_t));
     if(boundary_conditions_u == NULL) return 1;
 
@@ -63,6 +79,14 @@ int main() {
     for(size_t i = 0; i < num_cells*3; i++){
         boundary_conditions_u[i] = 0;
     }
+
+    // array for values used for velocity BCs
+    double *boundary_conditions_u_values = malloc(num_cells * 3 * sizeof(double));
+    if(boundary_conditions_u_values == NULL) return 1;
+
+    // array for cell-ids used for velocity BCs
+    size_t *boundary_conditions_u_ids = malloc(num_cells * 3 * sizeof(size_t));
+    if(boundary_conditions_u_ids == NULL) return 1;
 
     // array for pressure boundary conditions:
     // 0: no BC
@@ -76,7 +100,18 @@ int main() {
         boundary_conditions_p[i] = 0;
     }
 
-    // generate initial pressure and velocity fields
+    // array for values used for pressure BCs
+    double *boundary_conditions_p_values = malloc(num_cells * sizeof(double));
+    if(boundary_conditions_p_values == NULL) return 1;
+
+    // array for cell-ids used for pressure BCs
+    size_t *boundary_conditions_p_ids = malloc(num_cells * sizeof(size_t));
+    if(boundary_conditions_p_ids == NULL) return 1;
+
+    printf("allocated and initialized all arrays.\n");
+
+    // === THE FOLLOWING SECTION WILL BE REPLACED LATER WITH INGESTED BCs, INITIAL FIELDS AND AN EXTERNAL MESH! ===
+    // generate initial pressure and velocity fields and boundary conditions for u and p
     for(size_t z = 0; z < nz; z++){
         for(size_t y = 0; y < ny; y++) {
             for(size_t x = 0; x < nx; x++) {
@@ -149,7 +184,6 @@ int main() {
                     cell_interfaces[24*id + 20] = 0;
                 }
 
-
                 // initial pressure field
                 pressure[id] = 0;                 //(coord_x - 5)*(coord_x - 5) + (coord_y - 5)*(coord_y - 5) + (coord_z - 5)*(coord_z - 5);     // parabolic field centered around center
                 
@@ -157,6 +191,58 @@ int main() {
                 if(y == ny-1) velocities[3*id] = 1.0;  // velocities in x-dir; lid-driven cavity, u = 1.0 for top cells
                 velocities[3*id+1] = 0;             // velocities in y-dir
                 velocities[3*id+2] = 0;             // velocities in z-dir
+
+                // === velocity BCs ===
+                // velocity to the right at top boundary
+                if(y == ny-1){
+                    boundary_conditions_u[3*id + 0] = 1; // const x-component
+                    boundary_conditions_u_values[3*id + 0] = 1.0; // value of x-component
+                    boundary_conditions_u[3*id + 1] = 1; // const y-component
+                    boundary_conditions_u_values[3*id + 1] = 0.0; // value of y-component
+                    boundary_conditions_u[3*id + 2] = 1; // const z-component
+                    boundary_conditions_u_values[3*id + 2] = 0.0; // value of z-component
+                }
+
+                // zero velocity at all other walls
+                if(x == 0 || x == nx-1 || y == 0 || z == 0 || z == nz-1){
+                    boundary_conditions_u[3*id + 0] = 1; // const x-component
+                    boundary_conditions_u_values[3*id + 0] = 0.0; // value of x-component
+                    boundary_conditions_u[3*id + 1] = 1; // const y-component
+                    boundary_conditions_u_values[3*id + 1] = 0.0; // value of y-component
+                    boundary_conditions_u[3*id + 2] = 1; // const z-component
+                    boundary_conditions_u_values[3*id + 2] = 0.0; // value of z-component
+                }
+
+                // === pressure BCs ===
+                if(x == 0){
+                    boundary_conditions_p[id] = 2; // copied value of p for constant gradient BC
+                    boundary_conditions_p_ids[id] = id+1; // id of cell with x-coordinate one larger than that of the of cell in question
+                }
+
+                if(x == nx-1){
+                    boundary_conditions_p[id] = 2; // copied value of p for constant gradient BC
+                    boundary_conditions_p_ids[id] = id-1; // id of cell with x-coordinate one smaller than that of the cell in question
+                }
+
+                if(y == 0){
+                    boundary_conditions_p[id] = 2; // copied value of p for constant gradient BC
+                    boundary_conditions_p_ids[id] = id+nx; // id of cell with y-coordinate one larger than that of cell in question
+                }
+                
+                if(y == ny-1){
+                    boundary_conditions_p[id] = 2; // copied value of p for constant gradient BC
+                    boundary_conditions_p_ids[id] = id-nx; // id of cell with y-coordinate one larger than that of cell in question
+                }
+
+                if(z == 0){
+                    boundary_conditions_p[id] = 2; // copied value of p for constant gradient BC
+                    boundary_conditions_p_ids[id] = id+nx*ny; // id of cell with z-coordinate one larger than that of cell in question
+                }
+                
+                if(z == nz-1){
+                    boundary_conditions_p[id] = 2; // copied value of p for constant gradient BC
+                    boundary_conditions_p_ids[id] = id-nx*ny; // id of cell with z-coordinate one larger than that of cell in question
+                }
 
             }
         }
@@ -186,31 +272,51 @@ int main() {
 
     // main simulation loop
     for(int step = 0; step < num_steps; step++){
-        
-        double t = step*dt;
 
-        // iterating update equations over all 
-        for(size_t cell_id = 0; cell_id < num_cells; cell_id++){
+        // file-name-variable for storing the .vtu outputs
+        char filename[64];
 
-            // boundary conditions on velocities
-            
-            // calculate tentative velocities
+        // write boundary conditions into arrays to be viewed in .vtu file
+        apply_velocity_BCs(num_cells, boundary_conditions_u, boundary_conditions_u_values, boundary_conditions_u_ids, velocities);
+        apply_pressure_BCs(num_cells, boundary_conditions_p, boundary_conditions_p_values, boundary_conditions_p_ids, pressure);
 
-
-            // enforce boundary conditions on tentative velocities
-
-            // calculate pressures and enforce pressure boundary conditions
-
-            // write output into vtu file
-            write_vtu("output.vtu", num_cells, num_points, mesh_point_coordinates, cell_points, pressure, velocities, t);
-        }
+        // write output into vtu file with step-number (format "output_X.vtu" where X is the timestep)
+        snprintf(filename, sizeof(filename), "output_%d.vtu", step);
+        write_vtu(filename, num_cells, num_points, mesh_point_coordinates, cell_points, pressure, velocities);
     }
 
+    /*
+    === allocated arrays ===
+    cell_centers
+    cell_interfaces
+    mesh_point_coordinates
+    cell_points
+    pressure
+    velocities
+    tent_velocities
+    boundary_conditions_u
+    boundary_conditions_u_values
+    boundary_conditions_u_ids
+    boundary_conditions_p
+    boundary_conditions_p_values
+    boundary_conditions_p_ids
+    */
+
     free(cell_centers);
+    free(cell_interfaces);
     free(mesh_point_coordinates);
     free(cell_points);
     free(pressure);
     free(velocities);
+    free(tent_velocities);
+    
+    free(boundary_conditions_u);
+    free(boundary_conditions_u_values);
+    free(boundary_conditions_u_ids);
+    
+    free(boundary_conditions_p);
+    free(boundary_conditions_p_values);
+    free(boundary_conditions_p_ids);
 
     printf("Wrote output.vtu — open in ParaView!\n");
 
